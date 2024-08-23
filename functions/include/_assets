@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+#=========================================================================
+# FILE: assets
+#=========================================================================
+# *) hash cmds
+# *) override aliases
+
+# black=0, red=1, green=2, yellow=3, blue=4, magenta=5, cyan=6, white=7
+
+unset FxAnsi
+declare -A FxAnsi=(
+    # meta
+    [esc]="\e"
+    [csi]="\e["
+
+    # style attr
+    [off]="\e[m"
+    [b]="\e[1m"
+    [dim]="\e[2m"
+    [i]="\e[3m"
+    [u]="\e[4m"
+    [rev]="\e[7m"
+
+    # colors                 # 38;5;0-255m
+    [green]="\e[38;5;41m"    # echo -e '\e[38;5;41m'abc'\e[m'
+    [red]="\e[38;5;124m"     # echo -e '\e[38;5;124m'abc'\e[m'
+    [yellow]="\e[38;5;184m"  # echo -e '\e[38;5;184m'abc'\e[m'
+
+    # symbols
+    [ok]="\e[38;5;41m\e[1m✔\e[m"    # echo -e '\e[38;5;41m✔\e[m'
+    [err]="\e[38;5;124m\e[1m✗\e[m"  # echo -e '\e[38;5;124m✗\e[m'
+    [warn]="!"
+    [ask]="?"
+)
+
+# ✓  normal
+# ✔  fat
+# ✗
+# ✗
+
+
+# FancyX=$'\342\234\227'      ✗
+# Checkmark=$'\342\234\223'   ✓
+
+
+# stdin connected to tty
+[[ -t 0 ]] && FxAnsi[stdin]=1 || FxAnsi[stdin]=0
+
+# stdout connected to tty
+[[ -t 1 ]] && FxAnsi[stdout]=1 || FxAnsi[stdout]=0
+
+
+msg() {
+    ((${FxAnsi[stdout]})) && printf "[${FxAnsi[${2:-green}]}${FxAnsi[${3:-ok}]}${FxAnsi[off]}] %s\n" "${1?}" >&2
+}
+
+msgError() {
+    msg "test ok"
+    ((${FxAnsi[stdout]})) && printf "[${FxAnsi[red]}${FxAnsi[err]}${FxAnsi[off]}] %s\n" "$1" >&2
+}
+
+msgOk() {
+    ((${FxAnsi[stdout]})) && printf "[${FxAnsi[green]}${FxAnsi[ok]}${FxAnsi[off]}] %s\n" "$1" >&2
+}
+
+
+

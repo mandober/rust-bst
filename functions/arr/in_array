@@ -1,0 +1,178 @@
+#!/bin/bash
+#=======================================================================
+#: FILE: in_array.bash
+#: PATH: $BING_FUNC/in_array.bash
+#: TYPE: function
+#:   NS: shell:bash:mandober:bing-bash:function:in_array
+#:  CAT: arrays
+#:
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#: AUTHOR:
+#:      bing-bash by Ivan Ilic <ivanilic1975@gmail.com>
+#:      https://github.com/mandober/bing-bash
+#:      za Ǆ - Use freely at owns risk
+#:      2-Apr-2016 (last revision)
+#:
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#: NAME:
+#:      in_array
+#:
+#: BRIEF:
+#:      Checks if value exists in an array.
+#:
+#: DESCRIPTION:
+#:      Checks if value exists in an array. The value can be a
+#:		scalar (variable or variable name) or array.
+#:
+#: DEPENDENCIES:
+#:      none
+#:
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#: EXAMPLE:
+#:		in_array var ARRAY
+#:		in_array "$var" ARRAY
+#:		in_array array ARRAY
+#:
+#: SYNOPSIS:
+#:      in_array NEEDLE HAYSTACK
+#:
+#: OPTIONS:
+#:      none
+#:
+#: PARAMETERS:
+#:
+#:		NEEDLE <variable>
+#:		Scalar or array variable to be searched for.
+#:		Needle can be passed:
+#:		- as plain string (e.g. in_array "abcd" HAYSTACK)
+#:		- by variable's value (e.g. in_array "$needle" HAYSTACK)
+#:		- by variable's name (e.g. in_array needle HAYSTACK) or
+#:		     array's name (e.g. in_array arrayNeedle HAYSTACK)
+#:		* in the last case, variable (whether scalar or array) is
+#:		  passed by name (without $).
+#:
+#:		HAYSTACK <array>
+#:		An array to be searched. Arrays are always passed by name.
+#:
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#: STDOUT:
+#:
+#:
+#: STDERR:
+#:      Error messages
+#:
+#: RETURN CODE:
+#:      0  great success
+#:      1  miserable failure
+#:      2  Parameter error
+#=======================================================================
+in_array() {
+
+#                                                                  ABOUT
+#                                                                  =====
+ local bbapp="${FUNCNAME[0]}"
+ local bbnfo="[bing-bash] $bbapp v.0.5"
+ local usage="USAGE: $bbapp NEEDLE HAYSTACK"
+
+#                                                               PRECHECK
+#                                                               ========
+ if [[ $# -eq 0 ]]; then
+    printf "\e[2m%s: %s\e[0m\n" "$bbapp" "Parameter error" >&2
+    printf "%s\n" "$usage" >&2
+    return 2
+ fi
+
+#                                                                   HELP
+#                                                                   ====
+ [[ $1 =~ ^(-u|--usage)$ ]] && { printf "%s\n" "$usage"; return 0; }
+ [[ $1 =~ ^(-v|--version)$ ]] && { printf "%s\n" "$bbnfo"; return 0; }
+ [[ $1 =~ ^(-h|--help)$ ]] && {
+	cat <<-EOFF
+	$bbnfo
+	  Checks if value exists in an array.
+	$usage
+	  Searches array HAYSTACK for a NEEDLE, which can be a
+	  string, a variable, name of variable or an array.
+	OPTIONS:
+	   -h, --help        Show program help.
+	   -u, --usage       Show program usage.
+	   -v, --version     Show program version.
+	EXAMPLES:
+	  in_array "abc" haystack    # haystack=(abc def ghi jkl)
+	  in_array \$var haystack     # var="abc"
+	  in_array var haystack
+	  in_array needle haystack   # needle=(def ghi)
+	EOFF
+	return 0
+ }
+
+#                                                                    SET
+#                                                                    ===
+ shopt -s extglob extquote; shopt -u nocasematch; set -o noglob
+ trap "set +o noglob" RETURN ERR SIGHUP SIGINT SIGTERM
+
+#                                                                  PARAMS
+#                                                                  ======
+local bbArrayName bbFlag bbNeedle
+
+## HAYSTACK - array
+bbArrayName="$2"
+local -n bbArrayRef="$2"
+
+## NEEDLE
+
+# Needle can be passed:
+# - as plain string (e.g. in_array "abcd" HAY)
+# - by variable's value (e.g. in_array "$needle" HAY)
+# - by variable's name (e.g. in_array needle HAY)
+# - as array's name (e.g. in_array arrayNeedle HAY)
+# * in last two cases, variable (whether scalar or array) is passed
+#   by name (without $), in fact, arrays are always passed by name.
+
+# First check if needle is set var (whether var or array)
+
+if bbFlag=$(declare -p "$1" 2>/dev/null); then
+	bbFlag=( $bbFlag )
+	# See if needle is scalar or array
+	if [[ "$bbFlag" =~ ^-[aA] ]]; then
+		## Array in array
+		# needle=(b c) haystack=(a b c d)
+		# in_array needle haystack
+		local -n bbNeedleRef="$1"
+		# this will keep track of matches
+		local bbBingo=0
+		local bbNeedleNum="${#bbNeedleRef[@]}"
+
+		local bbHay bbValNeedle
+		for bbValNeedle in "${bbNeedleRef[@]}"; do
+			for bbHay in "${bbArrayRef[@]}"; do
+				[[ "$bbHay" == "$bbValNeedle" ]] && (( bbBingo++ ))
+			done
+		done
+
+		if [[ "$bbBingo" -ge "$bbNeedleNum" ]]; then
+			return 0
+		else
+			return 1
+		fi
+	else
+		# in_array var ARRAY
+		bbNeedle="${!1}"
+	fi
+else
+	# in_array "$var" ARRAY
+	# in_array "abcd" ARRAY
+	bbNeedle="$1"
+fi
+
+# echo "$bbNeedle: bbNeedle"
+
+# Needle is a var or string, see if array has such value
+# Return success (0) on first match
+local bbString
+for bbString in "${bbArrayRef[@]}"; do
+	[[ "$bbString" == "$bbNeedle" ]] && return 0
+done
+return 1
+
+} # $BING_FUNC/in_array.bash

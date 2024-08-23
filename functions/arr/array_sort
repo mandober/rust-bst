@@ -1,0 +1,205 @@
+#!/bin/bash bingmsg
+#=========================================================================
+#: FILE: array_sort.bash
+#: PATH: $BING_FUNC/array_sort.bash
+#: TYPE: function
+#:   NS: shell:bash:mandober:bing-bash:function:bb_array_sort
+#:  CAT: arrays
+#:
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#: AUTHOR:
+#:      bing-bash by Ivan Ilic <ivanilic1975@gmail.com>
+#:      https://github.com/mandober/bing-bash
+#:      za Ǆ - Use freely at owns risk
+#:      17-Apr-2016 (last revision)
+#:
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#: NAME: 
+#:      bb_array_sort
+#:
+#: BRIEF: 
+#:      Sort an array. 
+#:
+#: DESCRIPTION:
+#:      Sorting array's values with `sort' utility.
+#:      It will just pass its SWITCH to `sort' utility.
+#:
+#: DEPENDENCIES:
+#:      functions: bb_err, bb_load, bb_is
+#:      utilities: sort
+#:
+#: EXAMPLE:
+#:      bb_array_sort varray     # sort array ascending
+#:      bb_array_sort -r varray  # sort array descending
+#:      bb_array_sort -u varray  # remove duplicated elements
+#:
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#: SYNOPSIS:
+#:      bb_array_sort ARRAY [NAME]
+#:
+#: OPTIONS: 
+#:      -
+#:
+#: PARAMETERS:
+#:    * ARRAY <array>
+#:      Name of the array to be converted (without $).
+#:    * NAME <identifier>
+#:      Optional: user chosen name for the converted array.
+#:
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#: ENVIRONMENT:
+#:    * NAME <array>
+#:      Optionally, if NAME is provided, the resulting array is 
+#:      created by that name.
+#:
+#: STDOUT:
+#:      -
+#:
+#: STDERR:
+#:      Error messages
+#:
+#: RETURN CODE:
+#:      0 - success
+#:      non 0 - see err file for non-zero errors
+#=========================================================================
+bb_array_sort() {
+
+#                                                                    ABOUT
+#-------------------------------------------------------------------------
+ local -r bbapp="${FUNCNAME[0]}"
+ local -r bbnfo="[bing-bash] $bbapp v.0.12"
+ local -r usage="USAGE: $bbapp [-rMhnRVu] [-o OUT] ARRAY"
+
+#                                                                 PRECHECK
+#-------------------------------------------------------------------------
+ if [[ $# -eq 0 ]]; then
+   printf "\e[2m%s: %s\e[0m\n" "$bbapp" "Parameter error" >&2
+   printf "%s\n" "$usage" >&2
+   return 2
+ fi
+
+#                                                                     HELP
+#-------------------------------------------------------------------------
+ [[ $1 =~ ^(--usage)$ ]] && { printf "%s\n" "$usage"; return 0; }
+ [[ $1 =~ ^(--version)$ ]] && { printf "%s\n" "$bbnfo"; return 0; }
+ [[ $1 =~ ^(--help)$ ]] && {
+	printf "\e[7m%s\e[0m\n" "$bbnfo"
+	printf "\e[1m%s\e[0m\n" "$usage"
+	cat <<-EOFF
+	Sort array.
+
+	DESCRIPTION:
+	  Sort ARRAY using the options below. If NAME is provided, put
+	  sorted array into NAME and leave original array intact.
+	OPTIONS:
+       (no switch)                sort ascending
+       -r, --reverse              sort descending
+       -M, --month-sort           sort months (jan feb march)
+       -h, --human-numeric-sort   sort units (5B 5b 5KB 3GB 5K 2G)
+       -n, --numeric-sort         sort numerically
+       -R, --random-sort          randomize values
+       -V, --version-sort         sort versions (0.1 0.x 0.11)
+       -u, --unique               keep only unique values
+	       --help                 show program help
+	       --usage                show program usage
+	       --version              show program version
+	EOFF
+	return 0
+ }
+
+#                                                                      SET
+#-------------------------------------------------------------------------
+ shopt -s extglob extquote; shopt -u nocasematch; set -o noglob
+ trap "set +o noglob" RETURN ERR SIGHUP SIGINT SIGTERM
+
+#                                                                   ASSIGN
+#=========================================================================
+local bbIn       # input array's name
+local bbOut      # output array's name
+local bbOpt      # options to sort utility
+
+while (( $# > 0 )); do
+  case $1 in
+    -o=*|--out=*) bbOut="${1#*=}";;
+        -o|--out) bbOut="${2?}"; shift;;
+             -o*) bbOut="${1#??}";;
+
+              -*) bbOpt="${1#?}";;
+
+   --) shift; bbIn="$1"; break;;
+
+    *) bbIn="$1";;
+  esac
+  shift
+done
+
+#                                                                   CHECKS
+#=========================================================================
+echo "In: $bbIn"
+echo "Opt: $bbOpt"
+echo "Out: $bbOut"
+
+#                                                IN
+#--------------------------------------------------
+local bbDeclare bbFlag
+
+# check if var is set
+if ! bbDeclare="$(declare -p "$bbIn" 2>/dev/null)"; then
+  printf "\e[2m%s: %s\e[0m\n" \
+  "$bbapp" "Parameter $bbIn is not set" >&2
+  return 2
+fi
+
+# check if var is array
+bbFlag=( $bbDeclare )
+if [[ ! "${bbFlag[1]}" =~ ^-a ]]; then
+  printf "\e[2m%s: %s\e[0m\n" \
+  "$bbapp" "Parameter $bbIn is not an array" >&2
+  return 3
+fi
+
+local -n bbInRef="$bbIn"
+
+#                                               OPT
+#--------------------------------------------------
+[[ "$bbOpt" =~ ^-[[:alpha:]]+$ ]] && return 4
+
+
+#                                               OUT
+#--------------------------------------------------
+case $bbOut in
+  [[:alpha:]_]+([[:alnum:]_]) ) bbOut="$bbOut";;
+  [1-9]) bbOut="$bbOut";;
+  "") bbOut=$bbIn;;
+   *) printf "\e[2m%s: %s\e[0m\n" "$bbapp" "Invalid identifier $bbOut" >&2
+      return 5;;
+esac
+
+
+echo "In: $bbIn"
+echo "Opt: $bbOpt"
+echo "Out: $bbOut"
+
+#                                                                     SORT
+#=========================================================================
+#
+# The LC_COLLATE affects sort order:
+#     LC_COLLATE=C     - sort capital before lowercased letters (ABCabc)
+#     LC_COLLATE=en_US - sort letters in mixed mode (aAbBcC)
+#
+# In fact, LC_COLLATE affects sort order, but LC_ALL overrides it
+#
+# EXAMPLES:
+#   LC_COLLATE=en_US bb_array_sort ARRAY
+#   LC_COLLATE=C bb_array_sort ARRAY
+#
+#   LC_ALL=en_US bb_array_sort ARRAY
+#   LC_ALL=C bb_array_sort ARRAY
+#
+#
+local bbTemp
+bbTemp=$(printf "%s\n" "${bbInRef[@]}" | sort -$bbOpt)
+mapfile -t "$bbOut" <<< "$bbTemp"
+return 0
+
+} # $BING_FUNC/array_sort.bash

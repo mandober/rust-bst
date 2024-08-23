@@ -1,0 +1,318 @@
+#!/bin/bash
+#                                                                       ID
+#-------------------------------------------------------------------------
+#    FILE: explode
+#    TYPE: bash function
+#  AUTHOR: Ilic Ivan <ilicivan@zoho.com>
+#     WEB: https://github.com/mandober/barf
+# LICENSE: MIT
+#    DATE: 09-Sep-2017 (last revision)
+#                                                                  DETAILS
+#-------------------------------------------------------------------------
+#  NAME:
+#      explode - convert a string to array.
+#
+#  SYNOPSIS:
+#      explode STR [-c|-d DELIM] [-o ARRAYNAME]
+#
+#  DESCRIPTION:
+#      Convert a string to array by splitting it on DELIM substring.
+#      Returns an indexed array of strings, each of which is a
+#      substring of string, formed by splitting string on boundaries
+#      delimited by the DELIM.
+#
+#  OPTIONS:
+#    -c, --char, --chars
+#      With this option DELIM is a character boundary i.e. each element
+#      of array will contain a single character from string; final array
+#      will not have empty elements.
+#
+#    -d, --delim, --delimiter DELIM
+#      DELIM can be a single character or multi-character substring.
+#      If skipped, the DELIM defaults to (in order of precedence):
+#      colon(:), slash(/), comma(,), dot(.),
+#      dash(-), semicolon(;), pipe(|), space ( ).
+#
+#    -o, --out ARRAYNAME
+#      ARRAYNAME is user supplied name for resulting indexed array (must
+#      be a valid identifier). If not provided, it defaults to EXPLODED.
+#
+#  OPERANDS:
+#     STR
+#       String STR to split, passed by name (without $). Required.
+#
+#                                                                   OUTPUT
+#-------------------------------------------------------------------------
+#  STDOUT:
+#       Help, usage, version (if explicitly requested).
+#
+#  STDERR:
+#       Error messages, help and usage.
+#
+#  ENVIRONMENT:
+#       This function will create a new variable in the environment; the
+#       name of this variable will be a user-provided string or EXPLODED,
+#       if no name is provided. This variable is an indexed array, whose
+#       value is the resulting array created by this function.
+#
+#  RETURN CODE:
+#       0  Success
+#       1  General failure
+#       2  Missing parameters
+#       3  Parameter is already an array
+#       4  Unsupported getopt version
+#       5  Parameter empty
+#       6  Invalid identifier
+#                                                                     INFO
+#-------------------------------------------------------------------------
+#  EXAMPLES:
+#       explode var             # passed by name
+#       explode "$var"          # passed by value
+#       explode var -c -oArray  # split chars
+#       explode var -d=':' -o newArray
+#       explode var -d ', ' -o newArray
+#       explode var -d, -o newArray
+#
+#  DEPENDENCIES:
+#       none
+#
+#  SEE ALSO:
+#       typeof [https://github.com/mandober/typeof]
+#       utility for pretty-printing bash arrays.
+#
+#=========================================================================
+explode() {
+
+#                                                                    ABOUT
+#-------------------------------------------------------------------------
+ local -r bbapp="${FUNCNAME[0]}"
+ local -r bbnfo="$bbapp v.0.1.11"
+ local -r usage="USAGE: $bbapp [-c|-d DELIM] [-o ARRAYNAME] STR"
+
+#                                                                 PRECHECK
+#-------------------------------------------------------------------------
+ if [[ $# -eq 0 ]]; then
+   printf "\e[2m%s: %s\e[0m\n" "$bbapp" "Missing parameters" >&2
+   printf "%s\n" "$usage" >&2
+   return 2
+ fi
+
+#                                                                     HELP
+#-------------------------------------------------------------------------
+ [[ $1 =~ ^(-u|--usage)$ ]] && { printf "%s\n" "$usage"; return 0; }
+ [[ $1 =~ ^(-v|--version)$ ]] && { printf "%s\n" "$bbnfo"; return 0; }
+ [[ $1 =~ ^(-h|--help)$ ]] && {
+	printf "\e[7m%s\e[0m\n" "$bbnfo"
+	printf "\e[1m%s\e[0m\n" "$usage"
+	cat <<-EOFF
+	Convert a string to array by splitting it by substring.
+
+	DESCRIPTION:
+	   Creates an indexed array of strings, each of which is a
+	   substring of STR, formed by splitting it on boundaries
+	   delimited by the DELIM which can also be multi-character string.
+	   If DELIM is not given it defaults to (in order of precedance):
+	     colon(:), slash(/), comma(,), dot(.),
+	     dash(-), semicolon(;), pipe(|), space ( ).
+	   If -c option is given, the DELIM is a character boundary i.e.
+	   each element of array will contain a single character from STR,
+	   but final array will not contain any empty elements. If ARRAYNAME
+	   is not provided, it defaults to EXPLODED.
+
+	OPTIONS:
+	   -d, --delim      Substring by which to split the STR.
+	   -c, --chars      Split string by characters (array of characters).
+	   -o, --out        Specify name for resulting array.
+	   -h, --help       Show program help.
+	   -u, --usage      Show program usage.
+	   -v, --version    Show program version.
+	EOFF
+	printf "\nEXAMPLE:\n"
+	printf '    %s\n' "$bbapp --delim=':'' --out=aux BASHOPTS"
+	return 0
+ }
+
+#                                                                      SET
+#-------------------------------------------------------------------------
+ shopt -s extglob         # Enable extended regular expressions
+ shopt -s extquote        # Enables $'' and $"" quoting
+ shopt -u nocasematch     # regexp case-sensitivity
+ set -o noglob            # Disable globbing (set -f).
+ trap "set +o noglob" RETURN ERR SIGHUP SIGINT SIGTERM # re-enable globbing
+
+#                                                                  OPTIONS
+#=========================================================================
+ local bbString  # input string
+ local bbOut     # name for resulting array
+ local bbTNT     # delimiter
+ local bbOpts    # if params are non-canonical, call getopt
+
+ while (($# > 0)); do
+  case $1 in
+
+       --out=*) bbOut="${1#*=}"; shift;;      # --out=Array
+      -o|--out) bbOut="${2?}"; shift 2;; # --out Array, -o Array
+           -o*) bbOut="${1#??}"; shift;;      #              -oArray
+
+    -c|--ch|--char|--chars) bbTNT="nill"; shift;;
+
+     --delim=*) delim="user"; bbTNT="${1#*=}"; shift;;
+    -d|--delim) delim="user"; bbTNT="${2?}"; shift 2;;
+           -d*) delim="user"; bbTNT="${1#??}"; shift;;
+
+   --) shift; bbString="$@"; set --;;
+
+    -*) # test getopt version
+        getopt -T
+        (($? != 4)) && {
+          cat <<-EOFF >&2
+					Your version of getopt cannot be used to normalize the suplied
+					options. Please try again, but supply normalized options: without
+					compounded short options and/or abbreviated long options.
+					EOFF
+          return 4
+        }
+
+        local bbOpts=$(getopt -quo -o:d:c -l out:,delim:,chars -- "$@")
+        bbOpts="${bbOpts# }"
+        bbOpts="${bbOpts// -- / }"
+        bbOpts="${bbOpts/% --/}"
+        # echo "getopt: \"$bbOpts\""
+        eval set -- "$bbOpts"
+    ;;
+
+    *) bbString="$1"; shift;;
+
+  esac
+ done
+
+ # check:
+ # echo "OUT: $bbOut"
+ # echo "TNT: $bbTNT"
+ # echo "STR: $bbString"
+
+#                                                                   CHECKS
+#=========================================================================
+ local bbFlag
+
+#                                           STR
+#----------------------------------------------
+ # Check if STR is passed by name
+ if bbFlag=$(declare -p "$bbString" 2>/dev/null); then
+  # must not be an array - can't explode an array
+  bbFlag=($bbFlag)
+  if [[ "${bbFlag[1]}" =~ ^-[aA] ]]; then
+    printf "\e[2m%s: %s\e[0m\n" "$bbapp" "Parameter is already an array" >&2
+    return 3
+  fi
+  # passed by name (bb_explode var)
+  bbString="${!bbString}"
+ fi
+
+ # check if STR is empty
+ if [[ -z "$bbString" ]]; then
+  printf "\e[2m%s: %s\e[0m\n" "$bbapp" "Parameter is empty" >&2
+  return 5
+ fi
+
+ unset bbFlag
+
+
+#                                           OUT
+#----------------------------------------------
+ # user provided name for resulting array
+ # if supplied, check if valid identifier
+ if [[ -n "$bbOut" ]]; then
+    if [[ ! "$bbOut" =~ ^[[:alpha:]_][[:alnum:]_]*$ ]]; then
+      printf "\e[2m%s: %s\e[0m\n" "$bbapp" "Invalid identifier" >&2
+      return 6
+    fi
+ else
+    bbOut="EXPLODED"
+ fi
+
+
+#                                           TNT
+#----------------------------------------------
+ # delimiter
+ bbTNT="${bbTNT:-default}"
+
+# echo "STR: $bbString"
+# echo "TNT: $bbTNT"
+# echo "OUT: $bbOut"
+
+
+#                                                        DEFAULT DELIMITER
+#=========================================================================
+ if [[ "$bbTNT" == "default" ]]; then
+    if [[ ! "$bbString" =~ ^[[:alpha:]]+$ ]]; then
+      case $bbString in
+          *:*) bbTNT=':';;
+         *\/*) bbTNT='/';;
+          *,*) bbTNT=',';;
+          *.*) bbTNT='.';;
+          *-*) bbTNT='-';;
+         *\;*) bbTNT=';';;
+          *|*) bbTNT='|';;
+        *\\t*) bbTNT='\\t';;
+        *\\v*) bbTNT='\\v';;
+        *\\n*) bbTNT='\\n';;
+        *\\r*) bbTNT='\\r';;
+            *) bbTNT=' ';;
+      esac
+      IFS="$bbTNT" read -a "$bbOut" <<< "$bbString"
+      return 0
+    else
+        # if string is all alpha, split by character
+        bbTNT="nill"
+    fi
+ fi
+
+#                                                           ARRAY OF CHARS
+#=========================================================================
+ if [[ "$bbTNT" == "nill" ]]; then
+    # Explode string into array of chars by inserting space after
+    # each char and bb_explode it. Exclude blank elements from array.
+    local bbSrc="$bbString"
+    unset bbString
+    while [[ "${#bbSrc}" -gt 0 ]]; do
+        bbString+="${bbSrc:0:1} "
+        bbSrc="${bbSrc#?}"
+    done
+    bbTNT=' '
+    IFS="$bbTNT" read -a "$bbOut" <<< "$bbString"
+    return 0
+ fi
+
+#                                                  USER/COMPOUND DELIMITER
+#=========================================================================
+ if [[ "$delim" == "user" ]]; then
+    # If user DELIMITER has more than 1 char
+    # replace that group of chars with a Unit Separator ($'\x1f')
+    [[ "${bbTNT}" = "\\n" ]] && bbString="${bbString//$'\\n'/$'\x1f'}"
+    [[ "${bbTNT}" = "\\t" ]] && bbString="${bbString//$'\\t'/$'\x1f'}"
+
+    if [[ "${#bbTNT}" -gt 1 ]]; then
+        bbString="${bbString//$bbTNT/$'\x1f'}"
+        IFS=$'\x1f' read -a "$bbOut" <<< "$bbString"
+    else
+        IFS="$bbTNT" read -a "$bbOut" <<< "$bbString"
+    fi
+    return 0
+ fi
+
+} # end explode
+
+
+
+if [[ "$0" == "$BASH_SOURCE" ]]; then
+  # if this file is executed
+  echo "[explode] executed!"
+  explode "$@"
+else
+  # if this file is sourced
+  echo "[explode] sourced!"
+fi
+
+# bash completions: complete with variable names (-v)
+complete -v explode

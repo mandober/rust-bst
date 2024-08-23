@@ -1,0 +1,290 @@
+#!/bin/bash bingmsg
+#=========================================================================
+#: FILE: array_shift
+#: PATH: $BING_FUNC/array_shift.bash
+#: TYPE: function
+#:   NS: shell:bash:mandober:bing-bash:function:bb_array_shift
+#:  CAT: arrays
+#:
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#: AUTHOR:
+#:      bing-bash by Ivan Ilic <ivanilic1975@gmail.com>
+#:      https://github.com/mandober/bing-bash
+#:      za Ǆ - Use freely at owns risk
+#:      19-Apr-2016 (last revision)
+#:
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#: NAME: 
+#:      bb_array_shift
+#:
+#: BRIEF: 
+#:      Shift an element off the beginning of array.
+#:
+#: DESCRIPTION:
+#:      Remove the first element from array ARRAY, shifting other 
+#:      elements down, and return the value of removed element.
+#:      This function behaves differently with different types of 
+#:      arrays:
+#:      
+#:    - Indexed packed array
+#:      (packed array starts from index 0 and has contiguous indexes)
+#:      This function makes most sense with packed arrays:
+#:      element 0 is removed and its value is returned; indices of 
+#:      other elements get shifted down by one (decreased by one),
+#:      so resulting array is still packed.
+#:      
+#:    - Indexed sparse array
+#:      (no contiguous indexes, may not start from index 0)
+#:      When used with sparse arrays this function can run in 2 modes,
+#:      which differ regarding whether the resulting array is packed
+#:      (re-indexed) after shifting or not. After the first element 
+#:      (which may or may not have index 0) is removed, the array is
+#:      re-indexed, unless -k option is specified, in which case the 
+#:      indices are left unchanged.
+#:      
+#:    - Associative arrays
+#:      When this function is used on associative arrays the result
+#:      is unpredictable because they don't have the notion of order
+#:      of elements (any element may be 'the first' element).
+#:
+#: DEPENDENCIES:
+#:      
+#:
+#: EXAMPLE:
+#:      bb_array_shift -oaux array
+#:
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#: SYNOPSIS:
+#:      bb_array_shift [-o OUT] ARRAY
+#:
+#: OPTIONS:
+#:      -o, --out <option> OUT <required argument>
+#:      
+#:      -v, ---verbosity <option> LEVEL <optional argument>
+#:      
+#:
+#: PARAMETERS:
+#:      ARRAY <array>
+#:      an array (indexed or associative)
+#:
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#: ENVIRONMENT:
+#:      
+#:      
+#: STDOUT:
+#:      the shifted value (0), or null if array is empty or is not an 
+#:      array (1).
+#:
+#: STDERR:
+#:      Error message
+#:
+#: RETURN CODE:
+#:      0  success
+#:      1  failure
+#:      2  Variable is not set
+#:      3  Parameter is not an array
+#:      4  Invalid identifier
+#:      9  Parameter empty
+#=========================================================================
+bb_array_shift() {
+
+#                                                                    ABOUT
+#-------------------------------------------------------------------------
+ local -r bbapp="${FUNCNAME[0]}"
+ local -r bbnfo="[bing-bash] $bbapp v.0.0.7"
+ local -r usage="USAGE: $bbapp [-o OUT] ARRAY"
+
+#                                                                 PRECHECK
+#-------------------------------------------------------------------------
+  if (($#==0)); then
+    printf "\e[2m%s: %s\e[0m\n" "$bbapp" "Parameter empty" >&2
+    printf "%s\n" "$usage" >&2
+    return 9
+  fi
+
+#                                                                     HELP
+#-------------------------------------------------------------------------
+ [[ $1 =~ ^(-v|--version)$ ]] && { printf "%s\n" "$bbnfo"; return 0; }
+ [[ $1 =~ ^(-u|--usage)$ ]] && { printf "%s\n" "$usage"; return 0; }
+ [[ $1 =~ ^(-h|--help)$ ]] && {
+	cat <<-EOFF
+	$bbnfo
+	  Shift array values.
+	$usage
+
+	EOFF
+	return 0
+ }
+
+#                                                                      SET
+#-------------------------------------------------------------------------
+ shopt -s extglob extquote; shopt -u nocasematch; set -o noglob
+ trap "set +o noglob" RETURN ERR SIGHUP SIGINT SIGTERM
+
+
+#                                                                   ASSIGN
+#=========================================================================
+local bbIn      # input array's name
+local bbOut     # output var's name
+local bbKeep    # keep indices or reindex?
+local bbOpts    # if params are non-canonical, call getopt
+
+
+while (( $# > 0 )); do
+  case $1 in
+
+     --out=*) bbOut="${1#*=}"; shift;;
+    -o|--out) bbOut="${2?}"; shift 2;;
+         -o*) bbOut="${1#??}"; shift;;
+
+   -k|--keep) bbKeep=1; shift 2;;
+
+   --) shift; bbIn="$@"; set --;;
+
+   -*) # long or short
+        echo "Options nor given canonically - getopt must be used..."
+        bbOpts=$(getopt --quiet --options -o:k --longoptions out:,keep -- "$@")
+        # If 1st char of optstring is minus (-o:k), non-option parameters are
+        # outputted at the place where they are found.
+        bbOpts="${bbOpts% --}" # small fix
+        eval set -- "$bbOpts"
+    ;;
+
+    *) bbIn+="$1 "; shift;;
+  esac
+done
+
+bbIn="${bbIn% }"
+
+echo "  \e[2mAFTER ASSIGN:"
+echo "  Keep: \"$bbKeep\""
+echo "  In: \"$bbIn\""
+echo "  Out: $bbOut\e[0m"
+
+#                                                                   CHECKS
+#=========================================================================
+
+#                                                      OPT
+#---------------------------------------------------------
+bbKeep="${bbKeep:-0}"
+
+#                                                    INPUT
+#---------------------------------------------------------
+local bbFlag
+
+# Check input param is an array
+if ! bbFlag=$(declare -p $bbIn 2>/dev/null); then
+	printf "\e[2m%s: %s\e[0m\n" "$bbapp" "Variable $bbIn is not set" >&2
+  return 2
+fi
+
+bbFlag=( $bbFlag )
+if [[ ! "${bbFlag[1]}" =~ ^-[aA] ]]; then
+  printf "\e[2m%s: %s\e[0m\n" "$bbapp" "Parameter $bbIn is not an array" >&2
+  return 3
+fi
+
+# input array ref
+local -n bbInRef="$bbIn"
+
+#                                                   OUTPUT
+#---------------------------------------------------------
+# valid id or valid FD (1-9) or default (BING_VAR)
+if [[ -z "$bbOut" ]]; then
+  #default
+  bbOut=BING_VAR
+else
+	# valid FD (1-9)
+  if [[ ! "$bbOut" =~ ^[1-9]$ ]]; then
+  	# valid id
+    if [[ ! "$bbOut" =~ ^[[:alpha:]_][[:alnum:]_]*$ ]]; then
+      printf "\e[2m%s: %s\e[0m\n" "$bbapp" "Invalid identifier" >&2
+      return 4
+    fi
+  fi
+fi
+
+  echo "  \e[2mAFTER CHECKS:"
+  echo "  Input array: $bbIn"
+  echo "  Before shift:"
+  typeof $bbIn 2>/dev/null
+  echo "  Output var: $bbOut\e[0m"
+
+
+#                                                                   PARAMS
+#=========================================================================
+# 1) array_shift ARRAY NAME 
+# 	 return 1st element, remove it from array and shift the rest down
+#    put returned value in variable NAME
+#
+# 2) array_shift --left N ARRAY NAME
+#    return Nth element, remove it from array and shift the rest down
+#
+# pop:
+# 3) array_shift --right ARRAY NAME
+#    return Nth element, remove it from array and shift the rest up
+#
+#
+# array_push — Push one or more elements onto the end of array
+# array_pop — Pop the element off the end of array
+# array_shift — Shift an element off the beginning of array
+# array_unshift — Prepend one or more elements to the beginning of an array
+
+#                                                                  PROCESS
+#=========================================================================
+# array_shift
+# Remove an element off the beginning of array
+# and return it. Affects the array. Creates a new variable.
+local bbKey bbOutput
+
+# find 1st element, which may not be index 0
+for bbKey in "${!bbInRef[@]}"; do
+	# assign element to var
+	bbOutput="${bbInRef[$bbKey]}"
+	# unset element from original array
+	unset bbInRef[$bbKey]
+	break
+done
+
+
+((bbKeep!=1)) && {
+  # reindex
+  local bbTemp bbVal BING_ARRAY
+  # bbInRef="${bbInRef[@]}"
+  for bbVal in "${bbInRef[@]}"; do
+    BING_ARRAY+=("$bbVal")
+  done
+  # typeof BING_ARRAY
+
+  bbTemp=$(printf "%s\n" "${BING_ARRAY[@]}")
+  unset "$bbIn"
+  mapfile -t "$bbIn" <<< "$bbTemp"
+  # read -a $bbIn <<< "${BING_ARRAY[@]}"
+}
+
+#                                                                   OUTPUT
+#=========================================================================
+case $bbOut in
+  1) printf "%s\n" "$bbOutput";; # output result to FD1
+  
+  2) printf "\e[2m%s\e[0m\n" "$bbOutput" >&2;; # output result to FD2
+  
+  [3-9]) # output result to FD 3-9
+    eval exec "${bbOut}>&1"
+    printf "\e[38;5;${bbOut}m %s \e[0m \n" "${bbOutput}" >&$bbOut;;
+  
+  *) declare -g $bbOut="$bbOutput";; # Assign results to var
+esac
+
+
+echo "  \e[2mAFTER PROCESS:"
+echo "  Input array: $bbIn"
+echo "  After shift:"
+typeof $bbIn 2>/dev/null
+echo "  Output var: $bbOutput\e[0m"
+
+
+
+return 0
+
+} # $BING_FUNC/array_shift.bash

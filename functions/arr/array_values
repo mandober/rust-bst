@@ -1,0 +1,247 @@
+#!/bin/bash bingmsg
+#==================================================================
+#: FILE: array_values
+#: PATH: $BING/func/array_values
+#: TYPE: function
+#:
+#: AUTHOR:
+#:      bing-bash by Ivan Ilic <ivanilic1975@gmail.com>
+#:      https://github.com/mandober/bing-bash
+#:      za Ǆ - Use freely at owns risk
+#:      10-Mar-2016 (last revision)
+#:
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#: NAME:
+#:      bb_array_values
+#:
+#: BRIEF:
+#:
+#:
+#: DESCRIPTION:
+#:      
+#:
+#: DEPENDENCIES:
+#:      bb_err
+#:
+#: EXAMPLE:
+#:      
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#: SYNOPSIS:
+#:      
+#:
+#: OPTIONS:
+#:      
+#:
+#: PARAMETERS:
+#:      
+#:
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#: RETURN:
+#:
+#: STDOUT:
+#:      
+#:
+#: STDERR:
+#:      Error messages
+#:
+#: RETURN CODE:
+#:		0  (no errors)
+#:	not 0  misc. errors (see err)
+#==================================================================
+
+bb_array_element() {
+
+### PARAMS
+local bbOpt bbArrayName bbVal
+
+# $1) OPTION
+bbOpt="$1"
+
+# $2) ARRAY
+# if [[ ! "$2" =~ ^-[[:alpha:]]$ ]]; then
+    # ! bb_is --array "$2" && { bb_err 63; echo "$usage" >&2; return 63; }
+	bbArrayName="$2"
+	local -n bbArrayRef="$2"
+# fi
+
+# echo "bbOpt: $bbOpt"
+# echo "bbArrayName: $bbArrayName"
+
+
+if [[ $bbOpt == --largest ]]; then
+	# array_values --largest [VAR]
+	# find largest string in array (and put it in VAR)
+
+	# array_values --Largest [VAR]
+	# find largest string in array (and put its key in VAR)
+
+	local -i bbMax=0
+	local bbElem=0
+
+	for bbKey in "${!bbArrayRef[@]}"; do
+		bbCurr=${#bbArrayRef[$bbKey]}
+		bbCurrElem=${bbArrayRef[$bbKey]}
+		bbMax=$(( bbCurr > bbMax ? bbCurr : bbMax ))
+		bbElem=$(( bbCurr > bbElem ? bbKey : 0 ))
+	done
+
+	echo "fd1: Largest string: $bbMax"
+	echo "fd2: error" 1>&2
+	exec 3>&1
+	echo "fd3" 1>&3
+
+fi
+
+
+
+
+return 0
+
+
+
+
+
+
+case bbOpt in
+
+ -n|--count) #@ USAGE: array --count ARRAY
+			# return number of array of elements
+	echo -n "${#bbArrayRef[@]}" && return 0
+ ;;
+
+
+ -k|--keys)	#@ USAGE: array --keys ARRAY
+			# return keys of an array
+	local bbKey
+	printf -v bbKey "%s, " "${!bbArrayRef[@]}"
+	echo "${bbKey%??}" && return 0
+ ;;
+
+
+ -v|--values) #@ USAGE: array --values ARRAY
+			# return values of an array
+	local bbVal
+	printf -v bbVal "\"%s\", " "${bbArrayRef[@]}"
+	echo "${bbVal%??}" && return 0
+ ;;
+
+
+ -e|--empty) #@ USAGE: array --empty ARRAY
+			# return empty elements of an array
+	local bbTemp bbAltArray
+	for bbTemp in "${!bbArrayRef[@]}"; do
+		[[ -n "${bbArrayRef[$bbTemp]}" ]] && continue
+		bbAltArray+="${bbTemp} "
+	done
+	echo "${bbAltArray%?}" && return 0
+ ;;
+
+
+
+#	======================== MUTILATORS =============================
+
+ -p|--pack)
+  #
+  #  USAGE: 
+  #      array --pack ARRAY
+  #  
+  #  DESCRIPTION: 
+  #      Re-index an indexed array. Associative array won't be touched
+  #
+	if [[ $(array --type "$bbArrayName") == "indexed" ]]; then
+		local j=0
+		for bbTemp in "${!bbArrayRef[@]}"; do
+			BING_ARRAY[$j]="${bbArrayRef[$bbTemp]}"
+			(( j++ ))
+		done
+
+    # eval "declare -ag $bbNewArray=( \"\${$BING_ARRAY[@]}\" )"
+		bb_array_clone BING_ARRAY "$bbArrayName"
+
+	fi
+	return 0
+ ;;
+
+
+ -q|--squeeze)
+  #
+  #  USAGE: 
+  #      array --squeeze ARRAY
+  #  
+  #  DESCRIPTION: 
+  #      Remove unset elements from indexed or associative array
+  #
+	if [[ $(array --type "$bbArrayName") == "indexed" ]]; then
+		local -a BING_ARRAY
+	elif [[ $(array --type "$bbArrayName") == "associative" ]]; then
+		local -A BING_ARRAY
+	else
+		return 111
+	fi
+
+	for bbTemp in "${!bbArrayRef[@]}"; do
+		[[ -z "${bbArrayRef[$bbTemp]}" ]] && continue
+		BING_ARRAY[$bbTemp]="${bbArrayRef[$bbTemp]}"
+	done
+
+	bb_array_clone BING_ARRAY "$bbArrayName"
+	return 0
+ ;;
+
+
+ -z|--zip)
+  #
+  #  USAGE: 
+  #      array --zip ARRAY
+  #  
+  #  DESCRIPTION: 
+  #      Remove unset elements and re-index an indexed array
+  #      If associative array, just remove unset elements.
+  #
+  array --squeeze "$bbArrayName"
+  if [[ $(array --type "$bbArrayName") == "indexed" ]]; then
+    array --pack "$bbArrayName"
+  fi
+  return 0
+ ;;
+
+
+ -u|--unique) 
+	# USAGE: array -u ARRAY [NAME]
+	# Remove duplicated values from an array.
+	# (Just a shortcut for: array --sort -u ARRAY [NAME])
+  shift
+  . "$BING_FUNC/arrays/array_sort"
+  array_sort -u "$@"
+  return 0
+ ;;
+
+
+ # -c|--clone)
+	# local bbNewArray bbPattern
+	# bbNewArray="${2:-BING_CLONED}"
+
+	# local bbDeclare
+	# if ! bbDeclare=$(declare -p "$bbArrayName" 2>/dev/null); then 
+	# 	return 60
+	# fi
+	
+	# if [[ $(array --type "$1") == "indexed" ]]; then
+	# 	bbPattern="declare -ag $bbNewArray="
+	# elif [[ "$(array --type $1)" == "associative" ]]; then
+	# 	bbPattern="declare -Ag $bbNewArray="
+	# else
+	# 	return 111
+	# fi
+
+	# eval "${bbDeclare/#declare*$1=/$bbPattern}"
+	# return 0
+ # ;;
+
+
+
+ *) return 197;;
+
+esac
+
+}

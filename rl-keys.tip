@@ -1,0 +1,5 @@
+c-a Jump to BOL
+c-e Jump to EOL
+c-w Delete prev word
+c-u Delete from cursor to BOL
+

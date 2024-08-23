@@ -1,0 +1,47 @@
+lang  tool        version  released    updated     source
+
+js
+      node        21.5.0                           PPA
+      node        21.6.0   2024-01-17  2024-01-17  PPA
+      npm         10.2.4   2024-01-17  2024-01-17  PPA
+
+haskell
+      ghc         9.4.7                            ghcup
+      ghc         9.8.1    2023-10-09              ghcup
+      hls         2.5.0.0
+      cabal       3.10.2.0
+      stack       2.13.1
+
+vi
+      vim         9.0.0749                         PPA
+      vim         9.0.2188                         PPA      nighly
+      neovim      0.9.4                            snap 
+      neovim      0.10.0-1962                      snap     nighly
+
+python
+      python      3.10.12                          jammy
+      python      3.12                             LATEST
+      pip         22.0.2                           jammy
+      pip         23.3.2   2023-12-17              LATEST
+      pdm         2.11.2                           installer (curl)
+      numpy       1.26.3   2024-01-02              LATEST
+
+lua
+     lua       5.4.6
+     luarocks  3.9.2
+
+tools
+     git          2.34.1                           jammy
+     emacs        27.1                             jammy
+     bash         5.1.16                           jammy
+     bash         5.2                              LATEST
+     zsh          5.8.1                            jammy
+     zsh          5.9.5   2022-10-08               LATEST
+     fish         3.3.1                            jammy
+     fish         3.6.4                            LATEST
+     tmux         3.2a                             jammy
+     tmux         3.3a                             LATEST
+     perl         5.34.0                           jammy
+     ripgrep      13.0.0                           jammy
+     fzf          0.29                             jammy
+

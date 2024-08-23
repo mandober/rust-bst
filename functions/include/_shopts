@@ -1,0 +1,38 @@
+﻿#!/usr/bin/env bash
+#=========================================================================
+# FILE: lib/shopts
+#=========================================================================
+
+# dotfiles are included in results of pathname expansion
+shopt -s dotglob
+
+# enable extended regular expressions
+shopt -s extglob
+
+# Enables $'' and $"" quoting
+shopt -s extquote
+
+# failed globbing patterns result in expansion error
+shopt -u failglob
+
+# double-star (**) used in a pathname expansion context will match all files and zero or more
+# directories and subdirectories. If the pattern is followed by a /, only directories and subdirectories match.
+shopt -s globstar
+
+# If set, bash matches filenames in a case-insensitive fashion when performing pathname expansion.
+shopt -s nocaseglob
+
+# If set, bash allows patterns which match no files to expand to a null string, rather than themselves.
+shopt -s nullglob
+
+# force C locale globbing and letter ranges
+shopt -s globasciiranges
+
+# regexp case-sensitivity
+shopt -u nocasematch
+
+# Disable globbing (set -f).
+set -o noglob
+
+# set trap to restore options: re-enable globbing
+trap "set +o noglob" RETURN

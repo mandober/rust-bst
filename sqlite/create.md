@@ -1,0 +1,21 @@
+# Create
+
+CREATE TABLE "shartefacts" ("id" INTEGER NOT NULL UNIQUE, "shart" TEXT NOT NULL, "about" TEXT NOT NULL, "cat" TEXT NOT NULL, PRIMARY KEY("id" AUTOINCREMENT));
+
+```
+CREATE TABLE "cats" (
+  "cid" INTEGER NOT NULL UNIQUE,
+  "cat" INTEGER,
+  PRIMARY KEY("cid" AUTOINCREMENT)
+);
+
+CREATE TABLE "shartefacts" (
+  "sid"   INTEGER NOT NULL UNIQUE,
+  "shart" TEXT NOT NULL,
+  "def"   TEXT NOT NULL,
+  "cat"   TEXT NOT NULL,
+  PRIMARY KEY("id" AUTOINCREMENT)
+);
+
+
+```

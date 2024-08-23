@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+die() {
+  local frame=0
+  while caller $frame; do
+    ((frame++));
+  done
+  echo "$*"
+  return 1
+}
+
+# Test functions:
+f1() { die "*** an error occured ***"; }
+f2() { f1; }
+f3() { f2; }
+
+# Run:
+f3
+
+# Output:
+# 12 f1 ./callertest.sh
+# 13 f2 ./callertest.sh
+# 14 f3 ./callertest.sh
+# 16 main ./callertest.sh
+# *** an error occured ***

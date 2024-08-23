@@ -1,0 +1,296 @@
+#!/bin/bash sourceme
+#                                                                       ID
+#-------------------------------------------------------------------------
+#    FILE: $BING/func/array.bash
+#    TYPE: function
+#     CAT: arrays
+#      NS: shell:bash:mandober:bing-bash:bb_array
+#                                                                  PROJECT
+#-------------------------------------------------------------------------
+#   TITLE: bing-bash - Bash Functions Library
+#  AUTHOR: Ivan Ilic <ivanilic1975@gmail.com>
+#    SITE: https://github.com/mandober/bing-bash
+# LICENSE: GPLv3
+#    DATE: 04-May-2016 (latest revision)
+#                                                                  DETAILS
+#-------------------------------------------------------------------------
+#  NAME:
+#       bb_array - Array related subroutines
+# 
+#  SYNOPSIS:
+#       bb_array --SUBROUTINE ARRAY ...
+#       
+#  DESCRIPTION:
+#       Subroutines delaing with arrays: qualify an array, quick
+#       dump an array, return empty elements of an array, etc.
+# 
+#  OPTIONS: 
+#       -c|--count ARRAY
+#       -d|--dump ARRAY
+#       -t|--type ARRAY
+#       -k|--keys ARRAY
+#       -v|--values ARRAY
+#       -l|--list ARRAY
+#       -e|--empty ARRAY
+#       -m|--max ARRAY
+#       
+#  OPERANDS:
+#       ARRAY <array> <identifier>
+#       Name of array variable (without $)
+#       
+#                                                                   OUTPUT
+#-------------------------------------------------------------------------
+#  STDOUT:
+#       All subroutines output results to stdout.
+# 
+#  STDERR:
+#       Error messages.
+#
+#  ENVIRONMENT:
+#       none
+#
+#  RETURN CODE:
+#       0  success
+#       1  failure
+#                                                                     INFO
+#-------------------------------------------------------------------------
+#  DEPENDENCIES:
+#       none
+#
+#  SEE ALSO:
+#       bb_is
+#
+#  NOTES:
+#       This file must be sourced.
+#
+#  EXAMPLES:
+#       bb_array -c varray   # outputs number of array's elements
+#
+#=========================================================================
+bb_array() {
+
+#                                                                    ABOUT
+#-------------------------------------------------------------------------
+ local -r bbapp="${FUNCNAME[0]}"
+ local -r bbnfo="[bing-bash] $bbapp v.0.19"
+ local usage="USAGE: $bbapp -c|d|t|k|v|e|m|l ARRAY"
+
+#                                                                     HELP
+#-------------------------------------------------------------------------
+ [[ $1 =~ ^(--version)$ ]] && { printf "%s\n" "$bbnfo"; return 0; }
+ [[ $1 =~ ^(--usage)$ ]] && { printf "%s\n" "$usage"; return 0; }
+ [[ $1 =~ ^(--help)$ ]] && {
+	printf "$bbnfo\n"
+	printf "  Array functions.\n"
+	printf "$usage\n"
+	cat <<-EOFF
+	OPTIONS
+	  
+	  ACCESSORS:
+	    -c, --count       Return number of array elements.
+      -d, --dump        Dump an array.
+      -t, --type        Return array type (indexed or associative).
+	    -k, --keys        Return keys of an array.
+	    -v, --values      Return values of an array.
+	    -e, --empty       Return empty keys of an array.
+	  
+	  MUTILATORS:
+	    -p, --pack        Re-index an indexed sparse array.
+	    -q, --squeeze     Remove unset elements from array.
+	    -z, --zip         Pack and squeeze an array.
+	    -s, --sort        Sort array's elements.
+	    -u, --unique      Remove duplicated values from an array.
+
+	  OTHER:
+	        --help        Show program help.
+	        --usage       Show program usage.
+	        --version     Show program version.
+	EOFF
+	return 0
+ }
+
+#                                                                      SET
+#-------------------------------------------------------------------------
+ shopt -s extglob extquote; shopt -u nocasematch; set -o noglob
+ trap "set +o noglob" RETURN ERR SIGHUP SIGINT SIGTERM
+
+
+
+
+#                                                                     SUBS
+#=========================================================================
+case $1 in
+
+-d|dump)
+  #
+  #  USAGE: 
+  #      array -d|--dump ARRAY
+  #
+  #  DESCRIPTION: 
+  #      Quick dump of indexed or associative arrays.
+  #      For prettier output see `typeof' function.
+  #
+  shift
+  local bbTemp
+  local bbArrayName="$1"
+  local -n bbArrayRef="$1"
+  printf "%12s: %s\n" "$bbArrayName" "[${#bbArrayRef[@]}]"
+  for bbTemp in "${!bbArrayRef[@]}"; do
+    printf "%12s: %s \e[2m(%d)\e[0m\n" \
+      "[$bbTemp]" "${bbArrayRef[$bbTemp]}" "${#bbArrayRef[$bbTemp]}"
+  done
+  return 0
+;;
+
+-t|type)
+  #
+  #  USAGE: 
+  #      array -t|--type ARRAY
+  #
+  #  DESCRIPTION: 
+  #      Qualify an array as indexed or associative.
+  #
+  shift
+  local bbFlag
+  if ! bbFlag=$(declare -p "$1" 2>/dev/null); then return 4; fi
+  bbFlag="${bbFlag:8:2}"
+  [[ "$bbFlag" == "-a" ]] && { printf "%s\n" "indexed"; return 0; }
+  [[ "$bbFlag" == "-A" ]] && { printf "%s\n" "associative"; return 0; }
+  return 3
+;;
+
+-k|keys)
+  #
+  #  USAGE: 
+  #      array -k|--keys ARRAY
+  #
+  #  DESCRIPTION: 
+  #      Return keys of an array.
+  #
+  shift
+  local -n bbArrayRef="$1"
+  printf "%s\n" "${!bbArrayRef[@]}"
+  return 0
+;;
+
+-e|empty)
+  #
+  #  USAGE: 
+  #      array -e|--empty ARRAY
+  #
+  #  DESCRIPTION: 
+  #      Return empty elements of an array
+  #
+  shift
+  local bbKey
+  local -n bbArrayRef="$1"
+  for bbKey in "${!bbArrayRef[@]}"; do
+    [[ -z "${bbArrayRef[$bbKey]}" ]] && printf "%s\n" "$bbKey"
+  done
+  return 0
+;;
+
+-m|max)
+  #
+  #  USAGE: 
+  #      array -m|--max ARRAY
+  #  
+  #  DESCRIPTION: 
+  #      Output number of characters of the element with most
+  #      characters and index of that element [in brackets].
+  #      If more than 1 elements have the same (maximum) number
+  #      of chars, only the first element encounered is returned.
+  #  
+  #  EXAMPLE: 
+  #      bb_array -m array
+  #      Could output `10 [2]' which means element 2 has the 
+  #      maximum number of characters, 10.
+  #
+  shift
+  local bbKey
+  local -n bbArrayRef="$1"
+  local bbCurr=0
+  local bbMax=0
+  local bbMaxKey=
+  for bbKey in "${!bbArrayRef[@]}"; do
+    bbCurr=${#bbArrayRef[$bbKey]}
+    if (( bbCurr > bbMax )); then
+      bbMax=$bbCurr
+      bbMaxKey=$bbKey
+    fi
+  done
+  printf '%s [%s]\n' "$bbMax" "$bbMaxKey"
+  return 0
+;;
+
+
+
+-v|values)
+  #
+  #  USAGE: 
+  #      array -v|--values ARRAY
+  #
+  #  DESCRIPTION: 
+  #      Return values of an array.
+  #
+  shift
+  local -n bbArrayRef="$1"
+  printf "\"%s\"\n" "${bbArrayRef[@]}"
+  return 0
+;;
+
+-l|list)
+  #
+  #  USAGE: 
+  #      array -l|--list ARRAY
+  #  
+  #  DESCRIPTION: 
+  #      Return array's values as a colon separated list.
+  #      Empty elements are skipped.
+  #
+  shift
+  local bbVal bbColons
+  local -n bbArrayRef="$1"
+  bbColons=""
+  for bbVal in "${bbArrayRef[@]}"; do
+    [[ -z "$bbVal" ]] && continue
+    bbColons+="$bbVal:"
+  done
+  bbColons="${bbColons%?}"
+  printf "%s\n" "$bbColons"
+  return 0
+;;
+
+
+*) echo "[bb_array] manipulate arrays";;
+
+esac
+return 0
+} # $BING/func/array.bash
+
+
+
+#                                                              COMPLETIONS
+#=========================================================================
+# RxCOMP="dump type keys values empty max list"
+# complete -W "$RxCOMP" -A arrayvar bb_array
+
+_bb_array() {
+    local cur prev opt_short
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    opt_long="dump type keys values list empty max"
+    opt_short="-d -t -k -v -l -e -m"
+
+    if [[ ${cur} == --* ]] ; then
+        COMPREPLY=( $(compgen -W "${opt_long}" -- ${cur}) )
+        return 0
+    fi
+
+    if [[ ${cur} == -* ]] ; then
+        COMPREPLY=( $(compgen -W "${opt_short}" -- ${cur}) )
+        return 0
+    fi
+}
+complete -F _bb_array bb_array
